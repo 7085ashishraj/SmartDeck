@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Deck {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  imageQuery  String?  // Comma-separated keywords for background images
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  cards       Card[]
+}
+
+model Card {
+  id             String   @id @default(cuid())
+  front          String
+  back           String
+  explanation    String?
+  
+  // Spaced Repetition (SM-2 Algorithm) metrics
+  interval       Int      @default(0)     // Days until next review
+  repetition     Int      @default(0)     // Number of consecutive correct answers
+  easeFactor     Float    @default(2.5)   // Easiness factor
+  nextReviewDate DateTime @default(now()) // When the card should be reviewed next
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  deckId         String
+  deck           Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+}
