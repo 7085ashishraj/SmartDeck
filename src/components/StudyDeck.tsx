@@ -1,251 +1,764 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { submitReview } from "@/app/study-actions";
-import { CheckCircle2, RefreshCw, Sparkles, Image as ImageIcon } from "lucide-react";
+import {
+  CheckCircle2, XCircle, ArrowRight, BookOpen, Brain,
+  BookMarked, GitBranch, PlayCircle, Home, Sparkles, RefreshCw,
+} from "lucide-react";
 import Link from "next/link";
+import FlashCardLearning from "@/components/FlashCardLearning";
+import BookLibrary      from "@/components/BookLibrary";
+import MindMap          from "@/components/MindMap";
+import VideoTutor       from "@/components/VideoTutor";
 
+const HANDWRITING = "var(--font-caveat), 'Caveat', cursive";
+const OPT_LABELS  = ["A", "B", "C", "D"];
 
-type Card = {
-  id: string;
-  front: string;
-  back: string;
-  explanation: string | null;
-  interval: number;
-};
-
-// imageQuery stores comma-separated real Wikipedia image URLs
-function getImageUrl(imageQuery: string, index: number): string | null {
-  if (!imageQuery) return null;
-  const urls = imageQuery.split(",").map(u => u.trim()).filter(Boolean);
-  if (urls.length === 0) return null;
-  return urls[index % urls.length];
-}
-
-// Fallback gradient themes if image fails to load
-const FALLBACK_GRADIENTS = [
-  "from-violet-900 via-purple-900 to-indigo-950",
-  "from-rose-900 via-pink-900 to-fuchsia-950",
-  "from-sky-900 via-blue-900 to-cyan-950",
-  "from-amber-900 via-orange-900 to-red-950",
-  "from-emerald-900 via-teal-900 to-cyan-950",
+const QUIZ_GRADIENTS = [
+  ["#0f0c29", "#302b63", "#24243e"],
+  ["#1a0533", "#4a044e", "#1a0533"],
+  ["#0a1628", "#1e3a8a", "#0a1628"],
+  ["#1a0a00", "#7c2d12", "#2d1200"],
+  ["#003333", "#1a4a3a", "#003333"],
 ];
 
+const QUIZ_ACCENTS = ["#818cf8","#c084fc","#60a5fa","#fb923c","#34d399"];
+
+type Card = { id: string; front: string; back: string; explanation: string | null; interval: number };
+type Phase = "learn" | "quiz" | "books" | "mindmap" | "video";
+type Opt   = { text: string; isCorrect: boolean };
+
+// ── helpers ────────────────────────────────────────────────────────────────
+function getImageUrl(iq: string, idx: number): string | null {
+  if (!iq) return null;
+  const urls = iq.split(",").map(u => u.trim()).filter(Boolean);
+  return urls.length ? urls[idx % urls.length] : null;
+}
+
+function shortOpt(s: string, max = 100): string {
+  if (s.length <= max) return s;
+  const trunc = s.slice(0, max);
+  return trunc.slice(0, trunc.lastIndexOf(" ") || max) + "…";
+}
+
+function buildOptions(allCards: Card[], currentCard: Card): Opt[] {
+  const correct = currentCard.back;
+  const distractors = allCards
+    .filter(c => c.id !== currentCard.id)
+    .map(c => c.back)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3);
+  return [{ text: correct, isCorrect: true }, ...distractors.map(t => ({ text: t, isCorrect: false }))]
+    .sort(() => Math.random() - 0.5);
+}
+
+// ── Left-side mode toggle (5 modes) ───────────────────────────────────────
+function ModeToggle({ phase, onChange }: { phase: Phase; onChange: (p: Phase) => void }) {
+  const tabs: { id: Phase; label: string; Icon: React.FC<any> }[] = [
+    { id: "learn",   label: "Cards",   Icon: BookOpen   },
+    { id: "quiz",    label: "Quiz",    Icon: Brain      },
+    { id: "books",   label: "Books",   Icon: BookMarked },
+    { id: "mindmap", label: "Map",     Icon: GitBranch  },
+    { id: "video",   label: "Video",   Icon: PlayCircle },
+  ];
+  return (
+    <motion.div
+      className="fixed left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-0.5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-md"
+      style={{ background: "rgba(8,8,16,0.82)" }}
+      initial={{ opacity: 0, x: -36 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.3, duration: 0.4, ease: "easeOut" }}
+    >
+      {tabs.map(({ id, label, Icon }) => {
+        const active = phase === id;
+        return (
+          <button
+            key={id}
+            onClick={() => onChange(id)}
+            className="relative flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-colors select-none overflow-hidden"
+            style={{ color: active ? "#fff" : "rgba(255,255,255,0.30)", width: 68 }}
+          >
+            {active && (
+              <motion.div
+                layoutId="mode-pill"
+                className="absolute inset-0 rounded-xl"
+                style={{
+                  background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                  boxShadow: "0 4px 18px rgba(99,102,241,0.55)",
+                }}
+                transition={{ type: "spring", stiffness: 420, damping: 32 }}
+              />
+            )}
+            <Icon className="h-[18px] w-[18px] relative z-10" strokeWidth={active ? 2.3 : 1.6} />
+            <span className="relative z-10 leading-none">{label}</span>
+          </button>
+        );
+      })}
+    </motion.div>
+  );
+}
+
+// ── Quiz Setup Screen ──────────────────────────────────────────────────────
+function QuizSetup({ total, onStart }: { total: number; onStart: (n: number) => void }) {
+  const opts = [5, 10, 15, 20].filter(n => n <= total);
+  if (!opts.includes(total) && total > 0) opts.push(total);
+  const [sel, setSel] = useState(Math.min(10, total));
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full max-w-lg px-4 flex flex-col items-center py-12 z-10"
+    >
+      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center mb-7 shadow-2xl shadow-indigo-500/30">
+        <Brain className="h-10 w-10 text-white" />
+      </div>
+
+      <h2 className="text-3xl font-extrabold text-white mb-2 text-center">Set Up Your Quiz</h2>
+      <p className="text-white/40 text-sm text-center mb-10 max-w-xs">
+        Choose how many questions you want to tackle. Each is a multiple-choice question with 4 options.
+      </p>
+
+      {/* Count picker */}
+      <div className="w-full mb-10">
+        <p className="text-xs font-bold text-white/40 uppercase tracking-widest text-center mb-4">
+          How many questions? ({total} available)
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          {opts.map(n => (
+            <button
+              key={n}
+              onClick={() => setSel(n)}
+              className="flex flex-col items-center py-4 rounded-2xl border-2 transition-all font-extrabold text-lg"
+              style={
+                sel === n
+                  ? { background: "linear-gradient(135deg,#6366f1,#8b5cf6)", borderColor: "#818cf8", color: "#fff", boxShadow: "0 4px 20px rgba(99,102,241,0.4)" }
+                  : { background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.45)" }
+              }
+            >
+              {n === total && !([5,10,15,20].includes(n)) ? "All" : n}
+              <span className="text-[10px] font-semibold mt-1 opacity-60">
+                {n === total && !([5,10,15,20].includes(n)) ? `${n} Qs` : "Questions"}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Start CTA */}
+      <motion.button
+        whileHover={{ scale: 1.03, y: -2 }}
+        whileTap={{ scale: 0.96 }}
+        onClick={() => onStart(sel)}
+        className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-extrabold text-lg text-white shadow-2xl shadow-indigo-500/30"
+        style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}
+      >
+        Start {sel}-Question Quiz
+        <ArrowRight className="h-5 w-5" />
+      </motion.button>
+    </motion.div>
+  );
+}
+
+// ── Score Screen — dramatic real-life reveal ─────────────────────────────
+const CONFETTI_COLORS = [
+  "#6366f1","#ec4899","#10b981","#f59e0b","#3b82f6","#a855f7","#ef4444","#06b6d4","#f97316","#84cc16",
+];
+
+function ScoreScreen({ correct, total, onRetry }: { correct: number; total: number; onRetry: () => void }) {
+  const pct = total > 0 ? correct / total : 0;
+  const R   = 82;
+  const C   = 2 * Math.PI * R;
+
+  // Counter: counts up from 0 → correct over ~1.5 s
+  const [displayCount, setDisplayCount] = useState(0);
+  const [counterDone,  setCounterDone]  = useState(false);
+
+  useEffect(() => {
+    if (correct === 0) { setCounterDone(true); return; }
+    const DURATION = 1600; // ms
+    const STEPS    = Math.min(correct, 40);
+    const interval = DURATION / STEPS;
+    let step = 0;
+    const t = setInterval(() => {
+      step++;
+      setDisplayCount(Math.round((step / STEPS) * correct));
+      if (step >= STEPS) { clearInterval(t); setCounterDone(true); }
+    }, interval);
+    return () => clearInterval(t);
+  }, [correct]);
+
+  // Stable confetti config
+  const confetti = useMemo(() =>
+    Array.from({ length: 28 }, (_, i) => ({
+      id: i,
+      tx:       (Math.random() - 0.5) * 560,
+      ty:       -(90 + Math.random() * 380),
+      rotate:   Math.random() * 720 - 360,
+      color:    CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      w:        6  + Math.random() * 8,
+      h:        8  + Math.random() * 5,
+      delay:    0.5 + Math.random() * 0.6,
+      duration: 1.3 + Math.random() * 0.9,
+    })), []);
+
+  const { grade, color, emoji } =
+    pct >= 0.9  ? { grade: "Outstanding",   color: "#10b981", emoji: "🌟" } :
+    pct >= 0.75 ? { grade: "Great Job",     color: "#6366f1", emoji: "🎉" } :
+    pct >= 0.5  ? { grade: "Good Work",     color: "#f59e0b", emoji: "👍" } :
+                  { grade: "Keep Practising", color: "#ef4444", emoji: "💪" };
+
+  const percent = Math.round(pct * 100);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="flex flex-col items-center justify-center py-8 z-10 w-full max-w-lg px-4 relative"
+    >
+      {/* ── Confetti burst (fires once counter is done on ≥50%) ── */}
+      {pct >= 0.5 && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none flex items-center justify-center">
+          {confetti.map(p => (
+            <motion.div
+              key={p.id}
+              className="absolute rounded-sm"
+              style={{ width: p.w, height: p.h, background: p.color, top: "50%", left: "50%" }}
+              initial={{ x: 0, y: 0, opacity: 1, rotate: 0, scale: 1 }}
+              animate={{ x: p.tx, y: p.ty, opacity: 0, rotate: p.rotate, scale: 0.4 }}
+              transition={{ duration: p.duration, delay: p.delay, ease: [0.22, 0.68, 0, 1.2] }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Title ── */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+        className="text-center mb-8"
+      >
+        <p className="text-white/35 text-[11px] font-black uppercase tracking-[0.25em] mb-1">Quiz Complete</p>
+        <h2 className="text-3xl font-extrabold text-white">Your Results Are In</h2>
+      </motion.div>
+
+      {/* ── SVG Circle + Counter ── */}
+      <div className="relative w-60 h-60 mb-8">
+        <svg className="w-full h-full" viewBox="0 0 200 200">
+          <defs>
+            <linearGradient id="sgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={color} />
+              <stop offset="100%" stopColor={color + "aa"} />
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+              <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+
+          {/* Track ring */}
+          <circle cx="100" cy="100" r={R} fill="none"
+            stroke="rgba(255,255,255,0.06)" strokeWidth="16" />
+
+          {/* Glow ring */}
+          <motion.circle cx="100" cy="100" r={R} fill="none"
+            stroke={color} strokeWidth="8" strokeLinecap="round"
+            strokeDasharray={C}
+            initial={{ strokeDashoffset: C }}
+            animate={{ strokeDashoffset: C * (1 - pct) }}
+            transition={{ duration: 1.8, ease: [0.34, 1.2, 0.64, 1], delay: 0.2 }}
+            style={{
+              transform: "rotate(-90deg)", transformOrigin: "100px 100px",
+              filter: "url(#glow)", opacity: 0.7,
+            }}
+          />
+
+          {/* Main ring */}
+          <motion.circle cx="100" cy="100" r={R} fill="none"
+            stroke="url(#sgGrad)" strokeWidth="16" strokeLinecap="round"
+            strokeDasharray={C}
+            initial={{ strokeDashoffset: C }}
+            animate={{ strokeDashoffset: C * (1 - pct) }}
+            transition={{ duration: 1.8, ease: [0.34, 1.2, 0.64, 1], delay: 0.2 }}
+            style={{ transform: "rotate(-90deg)", transformOrigin: "100px 100px" }}
+          />
+        </svg>
+
+        {/* Handwriting score inside circle */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center select-none">
+          {/* Animated counter */}
+          <div
+            style={{
+              fontFamily: HANDWRITING,
+              fontSize: "3.8rem",
+              fontWeight: 800,
+              color: "#fff",
+              lineHeight: 1,
+              letterSpacing: "-0.02em",
+              filter: counterDone ? "none" : "blur(0.5px)",
+              transition: "filter 0.3s",
+            }}
+          >
+            {displayCount}
+          </div>
+          <div
+            style={{
+              fontFamily: HANDWRITING,
+              fontSize: "1.35rem",
+              color: "rgba(255,255,255,0.35)",
+              lineHeight: 1,
+              marginTop: 2,
+            }}
+          >
+            / {total}
+          </div>
+          {/* Percent — fades in after counter done */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: counterDone ? 1 : 0 }}
+            transition={{ duration: 0.5 }}
+            style={{
+              fontFamily: HANDWRITING,
+              fontSize: "1rem",
+              color,
+              fontWeight: 700,
+              marginTop: 4,
+            }}
+          >
+            {percent}%
+          </motion.div>
+        </div>
+      </div>
+
+      {/* ── Grade banner — slides in after circle ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.85 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.55, delay: 1.6, ease: [0.34, 1.56, 0.64, 1] }}
+        className="flex flex-col items-center mb-10"
+      >
+        <div
+          className="flex items-center gap-3 px-7 py-4 rounded-2xl border-2 mb-3"
+          style={{
+            background: `${color}18`,
+            borderColor: `${color}55`,
+            boxShadow: `0 8px 32px ${color}30`,
+          }}
+        >
+          <span className="text-3xl">{emoji}</span>
+          <span className="text-2xl font-extrabold" style={{ color }}>{grade}!</span>
+        </div>
+        <p className="text-white/40 text-sm text-center">
+          {correct} correct answer{correct !== 1 ? "s" : ""} out of {total} questions
+        </p>
+
+        {/* Score bar */}
+        <div className="w-full max-w-xs mt-4 h-2 bg-white/6 rounded-full overflow-hidden border border-white/8">
+          <motion.div
+            className="h-full rounded-full"
+            style={{ background: `linear-gradient(90deg, ${color}, ${color}bb)` }}
+            initial={{ width: "0%" }}
+            animate={{ width: `${percent}%` }}
+            transition={{ duration: 1.2, delay: 1.8, ease: "easeOut" }}
+          />
+        </div>
+      </motion.div>
+
+      {/* ── Buttons ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 2.0 }}
+        className="flex gap-3"
+      >
+        <Link href="/">
+          <button className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 text-white/60 font-bold rounded-xl hover:bg-white/10 transition-all text-sm">
+            <Home className="h-4 w-4" /> Dashboard
+          </button>
+        </Link>
+        <button
+          onClick={onRetry}
+          className="flex items-center gap-2 px-6 py-3 font-bold rounded-xl text-white text-sm transition-all shadow-lg"
+          style={{
+            background: `linear-gradient(135deg, ${color}, ${color}cc)`,
+            boxShadow: `0 6px 20px ${color}44`,
+          }}
+        >
+          Try Again <RefreshCw className="h-4 w-4" />
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── MCQ Question Card ──────────────────────────────────────────────────────
+function MCQCard({
+  card, index, total, opts, selectedIdx, answered, imageUrl, accent, gradient,
+  onSelect, onNext,
+}: {
+  card: Card; index: number; total: number;
+  opts: Opt[]; selectedIdx: number | null; answered: boolean;
+  imageUrl: string | null; accent: string;
+  gradient: string[];
+  onSelect: (i: number) => void;
+  onNext: () => void;
+}) {
+  const [imgErr, setImgErr] = useState(false);
+  const hasImg = !!imageUrl && !imgErr;
+
+  // Reset img error when card changes
+  useEffect(() => { setImgErr(false); }, [imageUrl]);
+
+  return (
+    <motion.div
+      key={card.id}
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="w-full max-w-2xl px-4 flex flex-col items-center z-10"
+    >
+      {/* Progress */}
+      <div className="w-full flex items-center gap-3 mb-6">
+        <div className="flex-1 bg-white/5 border border-white/10 h-2 rounded-full overflow-hidden">
+          <motion.div
+            className="h-full rounded-full"
+            style={{ background: `linear-gradient(90deg, ${accent}, ${accent}bb)` }}
+            animate={{ width: `${(index / total) * 100}%` }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          />
+        </div>
+        <span className="text-xs font-bold text-white/40 shrink-0 tabular-nums">{index + 1} / {total}</span>
+      </div>
+
+      {/* Question card with background image */}
+      <div
+        className="relative w-full rounded-3xl overflow-hidden mb-5 flex flex-col justify-between"
+        style={{
+          minHeight: 220,
+          background: hasImg ? undefined : `linear-gradient(145deg, ${gradient[0]}, ${gradient[1]}, ${gradient[2]})`,
+        }}
+      >
+        {hasImg && (
+          <>
+            <img
+              src={imageUrl!}
+              alt="topic"
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={() => setImgErr(true)}
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/80" />
+          </>
+        )}
+        {!hasImg && (
+          <>
+            <div
+              className="absolute inset-0 opacity-20"
+              style={{
+                backgroundImage: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15) 0%, transparent 60%)",
+              }}
+            />
+          </>
+        )}
+
+        <div className="relative z-10 p-6 sm:p-8 flex flex-col h-full" style={{ minHeight: 220 }}>
+          {/* Badge */}
+          <div className="flex items-center gap-2 mb-4">
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border"
+              style={{ background: `${accent}22`, borderColor: `${accent}55`, color: accent }}
+            >
+              <Sparkles className="h-3 w-3" />
+              Question {index + 1}
+            </div>
+          </div>
+
+          {/* Question text */}
+          <div className="flex-1 flex items-center">
+            <h3
+              className="text-white leading-relaxed drop-shadow-lg"
+              style={{ fontFamily: HANDWRITING, fontSize: "1.55rem", fontWeight: 800, lineHeight: 1.4 }}
+            >
+              {card.front}
+            </h3>
+          </div>
+
+          {/* Hint */}
+          {!answered && (
+            <p className="text-white/35 text-xs font-semibold mt-3">Choose the correct answer below →</p>
+          )}
+        </div>
+      </div>
+
+      {/* Options */}
+      <div className="w-full grid grid-cols-1 gap-3 mb-5">
+        {opts.map((opt, i) => {
+          const isSelected  = selectedIdx === i;
+          const isCorrectOp = opt.isCorrect;
+
+          let bg = "rgba(255,255,255,0.06)";
+          let border = "rgba(255,255,255,0.12)";
+          let textColor = "rgba(255,255,255,0.85)";
+          let icon = null;
+
+          if (answered) {
+            if (isSelected && isCorrectOp)  { bg = "rgba(16,185,129,0.22)";  border = "rgba(52,211,153,0.60)";  textColor = "#6ee7b7"; icon = <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />; }
+            else if (isSelected && !isCorrectOp) { bg = "rgba(239,68,68,0.22)";  border = "rgba(248,113,113,0.60)"; textColor = "#fca5a5"; icon = <XCircle className="h-5 w-5 text-red-400 shrink-0" />; }
+            else if (!isSelected && isCorrectOp) { bg = "rgba(16,185,129,0.10)";  border = "rgba(52,211,153,0.35)";  textColor = "#6ee7b7"; icon = <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 opacity-70" />; }
+            else { bg = "rgba(255,255,255,0.02)"; border = "rgba(255,255,255,0.06)"; textColor = "rgba(255,255,255,0.25)"; }
+          }
+
+          return (
+            <motion.button
+              key={i}
+              onClick={() => !answered && onSelect(i)}
+              disabled={answered}
+              whileHover={!answered ? { scale: 1.01, x: 2 } : {}}
+              whileTap={!answered ? { scale: 0.98 } : {}}
+              animate={
+                answered && isSelected && !isCorrectOp
+                  ? { x: [0, -6, 6, -4, 4, 0] }
+                  : answered && isSelected && isCorrectOp
+                  ? { scale: [1, 1.03, 1] }
+                  : {}
+              }
+              transition={{ duration: 0.4 }}
+              className="flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all disabled:cursor-default"
+              style={{ background: bg, borderColor: border, cursor: answered ? "default" : "pointer" }}
+            >
+              {/* Label badge */}
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
+                style={{
+                  background: answered
+                    ? (isCorrectOp ? "rgba(16,185,129,0.25)" : isSelected ? "rgba(239,68,68,0.25)" : "rgba(255,255,255,0.05)")
+                    : "rgba(255,255,255,0.10)",
+                  color: answered
+                    ? (isCorrectOp ? "#6ee7b7" : isSelected ? "#fca5a5" : "rgba(255,255,255,0.2)")
+                    : "rgba(255,255,255,0.7)",
+                }}
+              >
+                {OPT_LABELS[i]}
+              </div>
+
+              {/* Option text */}
+              <span className="text-sm font-semibold leading-snug flex-1" style={{ color: textColor }}>
+                {shortOpt(opt.text)}
+              </span>
+
+              {/* Right/wrong icon */}
+              {answered && icon}
+            </motion.button>
+          );
+        })}
+      </div>
+
+      {/* Explanation (shown after answer) */}
+      {answered && card.explanation && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full flex items-start gap-3 p-4 rounded-2xl mb-4"
+          style={{ background: "rgba(99,102,241,0.12)", border: "1.5px solid rgba(99,102,241,0.30)" }}
+        >
+          <span className="text-lg shrink-0">💡</span>
+          <p className="text-indigo-200 text-sm font-medium leading-relaxed">{card.explanation}</p>
+        </motion.div>
+      )}
+
+      {/* Next button */}
+      {answered && (
+        <motion.button
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileHover={{ scale: 1.03, y: -2 }}
+          whileTap={{ scale: 0.96 }}
+          onClick={onNext}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-extrabold text-base text-white shadow-xl"
+          style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)`, boxShadow: `0 8px 24px ${accent}44` }}
+        >
+          {index + 1 < total ? "Next Question" : "See Results"}
+          <ArrowRight className="h-5 w-5" />
+        </motion.button>
+      )}
+    </motion.div>
+  );
+}
+
+// ── Main StudyDeck ─────────────────────────────────────────────────────────
 export default function StudyDeck({
-  cards,
-  deckId,
-  imageQuery,
+  cards, deckId, imageQuery, deckTitle,
 }: {
   cards: Card[];
   deckId: string;
   imageQuery: string;
+  deckTitle: string;
 }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [direction, setDirection] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
-  const [finished, setFinished] = useState(cards.length === 0);
-  const [imgError, setImgError] = useState<Record<number, boolean>>({});
+  const [phase, setPhase] = useState<Phase>("learn");
 
-  const fallbackGradient = FALLBACK_GRADIENTS[currentIndex % FALLBACK_GRADIENTS.length];
+  // Quiz state
+  const [quizReady,    setQuizReady]    = useState(false);  // setup done
+  const [quizCards,    setQuizCards]    = useState<Card[]>([]);
+  const [currentQIdx,  setCurrentQIdx]  = useState(0);
+  const [qOpts,        setQOpts]        = useState<Opt[]>([]);
+  const [selectedIdx,  setSelectedIdx]  = useState<number | null>(null);
+  const [answered,     setAnswered]     = useState(false);
+  const [scores,       setScores]       = useState<boolean[]>([]);
+  const [showScore,    setShowScore]    = useState(false);
+  const [submitting,   setSubmitting]   = useState(false);
 
-  // Preload next image
+  // Build options whenever question changes
   useEffect(() => {
-    if (!imageQuery || currentIndex >= cards.length - 1) return;
-    const nextUrl = getImageUrl(imageQuery, currentIndex + 1);
-    if (!nextUrl) return;
-    const img = new window.Image();
-    img.src = nextUrl;
-  }, [currentIndex, imageQuery, cards.length]);
+    if (!quizReady || quizCards.length === 0) return;
+    setQOpts(buildOptions(cards, quizCards[currentQIdx]));
+    setSelectedIdx(null);
+    setAnswered(false);
+  }, [currentQIdx, quizReady, quizCards.length]);
 
-  if (finished) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-md shadow-2xl max-w-lg w-full mt-10 z-10 text-center">
-        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/30">
-          <CheckCircle2 className="h-12 w-12 text-white" />
-        </div>
-        <h2 className="text-3xl font-extrabold text-white mb-4">Session Complete! 🎉</h2>
-        <p className="text-gray-400 text-lg mb-8">
-          Great work! Your deck is updated. Come back when cards are due.
-        </p>
-        <Link href="/">
-          <button className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95">
-            Return to Dashboard
-          </button>
-        </Link>
-      </div>
-    );
-  }
+  const startQuiz = (count: number) => {
+    const shuffled = [...cards].sort(() => Math.random() - 0.5).slice(0, count);
+    setQuizCards(shuffled);
+    setCurrentQIdx(0);
+    setScores([]);
+    setShowScore(false);
+    setQuizReady(true);
+    setQOpts(buildOptions(cards, shuffled[0]));
+    setSelectedIdx(null);
+    setAnswered(false);
+  };
 
-  const card = cards[currentIndex];
-  const imageUrl = getImageUrl(imageQuery, currentIndex);
-  const hasImage = !!imageUrl && !imgError[currentIndex];
-
-  const handleNext = async (rating: number) => {
-    if (submitting) return;
+  const handleSelect = async (idx: number) => {
+    if (answered || submitting) return;
     setSubmitting(true);
-    setDirection(1);
-    await submitReview(card.id, rating).catch(console.error);
-    setTimeout(() => {
-      if (currentIndex < cards.length - 1) {
-        setCurrentIndex((c) => c + 1);
-        setIsFlipped(false);
-      } else {
-        setFinished(true);
-      }
-      setSubmitting(false);
-    }, 200);
+    setSelectedIdx(idx);
+    setAnswered(true);
+    const isCorrect = qOpts[idx].isCorrect;
+    setScores(prev => [...prev, isCorrect]);
+    await submitReview(quizCards[currentQIdx].id, isCorrect ? 3 : 0).catch(console.error);
+    setSubmitting(false);
   };
 
-  const variants = {
-    enter: (d: number) => ({ x: d > 0 ? 380 : -380, opacity: 0, scale: 0.93, rotate: d > 0 ? 3 : -3 }),
-    center: { zIndex: 1, x: 0, opacity: 1, scale: 1, rotate: 0 },
-    exit: (d: number) => ({ zIndex: 0, x: d < 0 ? 380 : -380, opacity: 0, scale: 0.93 }),
+  const handleNext = () => {
+    if (currentQIdx < quizCards.length - 1) {
+      setCurrentQIdx(i => i + 1);
+    } else {
+      setShowScore(true);
+    }
   };
+
+  const resetQuiz = () => {
+    setQuizReady(false);
+    setQuizCards([]);
+    setCurrentQIdx(0);
+    setScores([]);
+    setShowScore(false);
+    setPhase("learn");
+  };
+
+  // Current quiz card helpers
+  const curCard   = quizCards[currentQIdx];
+  const imgUrl    = quizReady && curCard ? getImageUrl(imageQuery, currentQIdx) : null;
+  const gradient  = QUIZ_GRADIENTS[currentQIdx % QUIZ_GRADIENTS.length];
+  const accent    = QUIZ_ACCENTS[currentQIdx % QUIZ_ACCENTS.length];
+
+  const correct = scores.filter(Boolean).length;
 
   return (
-    <div className="w-full max-w-2xl px-4 flex flex-col items-center z-10">
+    <>
+      {/* Left mode toggle */}
+      <ModeToggle phase={phase} onChange={setPhase} />
 
-      {/* Progress Bar */}
-      <div className="w-full flex items-center gap-3 mb-8">
-        <div className="flex-1 bg-white/5 border border-white/10 h-2 rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500 rounded-full"
-            animate={{ width: `${(currentIndex / cards.length) * 100}%` }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-          />
-        </div>
-        <span className="text-xs font-bold text-white/40 shrink-0 tabular-nums">
-          {currentIndex + 1} / {cards.length}
-        </span>
-      </div>
+      {/* Phase content */}
+      <AnimatePresence mode="wait">
 
-      {/* Card */}
-      <div className="relative w-full h-[440px] sm:h-[480px]">
-        <AnimatePresence initial={false} custom={direction}>
-          <motion.div
-            key={currentIndex + (isFlipped ? "-back" : "-front")}
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ type: "spring", stiffness: 280, damping: 26, opacity: { duration: 0.15 } }}
-            className="absolute inset-0 w-full h-full cursor-pointer"
-            onClick={() => !isFlipped && setIsFlipped(true)}
+        {/* ── LEARN ── */}
+        {phase === "learn" && (
+          <motion.div key="learn"
+            initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.3 }}
+            className="w-full flex justify-center"
           >
-            {!isFlipped ? (
-              /* ===== FRONT: Topic Image Background ===== */
-              <div className="relative w-full h-full rounded-[2rem] overflow-hidden shadow-2xl shadow-black/50">
-                {/* Background Image */}
-                {hasImage ? (
-                  <>
-                    <img
-                      src={imageUrl!}
-                      alt="topic"
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onError={() => setImgError(prev => ({ ...prev, [currentIndex]: true }))}
-                    />
-                    {/* Strong dark overlay for readability */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/55 to-black/80" />
-                  </>
-                ) : (
-                  /* Fallback gradient if image fails */
-                  <div className={`absolute inset-0 bg-gradient-to-br ${fallbackGradient}`} />
-                )}
+            <FlashCardLearning cards={cards} onComplete={() => setPhase("quiz")} />
+          </motion.div>
+        )}
 
-                {/* Card content over image */}
-                <div className="relative z-10 flex flex-col h-full p-8 sm:p-10 justify-between">
-                  <div className="flex items-center gap-2">
-                    {hasImage ? (
-                      <ImageIcon className="h-4 w-4 text-white/50" />
-                    ) : (
-                      <Sparkles className="h-4 w-4 text-white/50" />
-                    )}
-                    <span className="text-xs font-extrabold uppercase tracking-widest text-white/50">
-                      Question {currentIndex + 1}
-                    </span>
-                  </div>
+        {/* ── QUIZ ── */}
+        {phase === "quiz" && (
+          <motion.div key="quiz"
+            initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }} transition={{ duration: 0.3 }}
+            className="w-full flex flex-col items-center"
+          >
+            {/* Score screen */}
+            {showScore && (
+              <ScoreScreen correct={correct} total={quizCards.length} onRetry={resetQuiz} />
+            )}
 
-                  <div className="flex-1 flex items-center justify-center text-center py-4">
-                    <h3 className="text-2xl sm:text-3xl font-bold text-white leading-relaxed drop-shadow-lg">
-                      {card.front}
-                    </h3>
-                  </div>
+            {/* Setup screen */}
+            {!showScore && !quizReady && (
+              <QuizSetup total={cards.length} onStart={startQuiz} />
+            )}
 
-                  <div className="flex items-center justify-center gap-2 text-white/40 animate-bounce">
-                    <RefreshCw className="w-4 h-4" />
-                    <span className="text-sm font-semibold">Tap to reveal answer</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* ===== BACK: Split layout - small image top, answer below ===== */
-              <div className="relative w-full h-full rounded-[2rem] overflow-hidden shadow-2xl bg-white flex flex-col">
-                {/* Top strip: blurred topic image */}
-                {hasImage && (
-                  <div className="relative h-28 w-full shrink-0 overflow-hidden">
-                    <img
-                      src={imageUrl!}
-                      alt="topic"
-                      className="w-full h-full object-cover scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
-                    <div className="absolute inset-0 flex items-center px-8">
-                      <span className="text-xs font-extrabold uppercase tracking-widest text-white/70 bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20">
-                        ✓ Answer
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Answer Content */}
-                <div className={`flex-1 overflow-y-auto p-7 sm:p-8 flex flex-col justify-center ${!hasImage ? "pt-10" : ""}`}>
-                  {!hasImage && (
-                    <span className="text-xs font-extrabold uppercase tracking-widest text-gray-400 mb-4">✓ Answer</span>
-                  )}
-                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 leading-relaxed mb-4">
-                    {card.back}
-                  </h3>
-                  {card.explanation && (
-                    <div className="mt-3 pt-4 border-t border-gray-100">
-                      <p className="text-sm sm:text-base text-gray-500 leading-relaxed font-medium">
-                        💡 {card.explanation}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+            {/* MCQ Questions */}
+            {!showScore && quizReady && curCard && (
+              <AnimatePresence mode="wait">
+                <MCQCard
+                  key={currentQIdx}
+                  card={curCard}
+                  index={currentQIdx}
+                  total={quizCards.length}
+                  opts={qOpts}
+                  selectedIdx={selectedIdx}
+                  answered={answered}
+                  imageUrl={imgUrl}
+                  accent={accent}
+                  gradient={gradient}
+                  onSelect={handleSelect}
+                  onNext={handleNext}
+                />
+              </AnimatePresence>
             )}
           </motion.div>
-        </AnimatePresence>
-      </div>
+        )}
 
-      {/* SM-2 Rating Buttons */}
-      <div
-        className={`w-full max-w-lg mt-8 grid grid-cols-4 gap-3 transition-all duration-300 ${
-          isFlipped ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
-        }`}
-      >
-        {[
-          { label: "Again", time: "< 1m", rate: 0, cls: "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:border-red-400" },
-          { label: "Hard",  time: "1d",   rate: 1, cls: "bg-orange-500/10 border-orange-500/30 text-orange-400 hover:bg-orange-500/20 hover:border-orange-400" },
-          { label: "Good",  time: "3d",   rate: 2, cls: "bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:border-blue-400" },
-          { label: "Easy",  time: "7d+",  rate: 3, cls: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-400" },
-        ].map((btn) => (
-          <motion.button
-            key={btn.label}
-            whileTap={{ scale: 0.93 }}
-            onClick={() => handleNext(btn.rate)}
-            disabled={submitting}
-            className={`flex flex-col items-center justify-center py-3 px-2 rounded-2xl border transition-all ${btn.cls} disabled:opacity-40`}
+        {/* ── BOOKS ── */}
+        {phase === "books" && (
+          <motion.div key="books"
+            initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }} transition={{ duration: 0.3 }}
+            className="w-full flex justify-center"
           >
-            <span className="font-bold text-base sm:text-lg leading-none mb-1">{btn.label}</span>
-            <span className="text-[9px] uppercase font-extrabold tracking-widest opacity-60">{btn.time}</span>
-          </motion.button>
-        ))}
-      </div>
-    </div>
+            <BookLibrary query={deckTitle} />
+          </motion.div>
+        )}
+
+        {/* ── MIND MAP ── */}
+        {phase === "mindmap" && (
+          <motion.div key="mindmap"
+            initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }} transition={{ duration: 0.3 }}
+            className="w-full flex justify-center"
+          >
+            <MindMap cards={cards} deckTitle={deckTitle} />
+          </motion.div>
+        )}
+
+        {/* ── VIDEO ── */}
+        {phase === "video" && (
+          <motion.div key="video"
+            initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }} transition={{ duration: 0.3 }}
+            className="w-full flex justify-center"
+          >
+            <VideoTutor deckTitle={deckTitle} />
+          </motion.div>
+        )}
+
+      </AnimatePresence>
+    </>
   );
 }

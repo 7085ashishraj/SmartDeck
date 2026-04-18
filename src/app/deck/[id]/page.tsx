@@ -41,7 +41,7 @@ export default async function DeckPage(props: { params: Promise<{ id: string }> 
         </div>
       </div>
 
-      <StudyDeck cards={cardsToReview} deckId={deck.id} imageQuery={deck.imageQuery || ""} />
+      <StudyDeck cards={cardsToReview} deckId={deck.id} imageQuery={deck.imageQuery || ""} deckTitle={deck.title} />
     </main>
   );
 }
