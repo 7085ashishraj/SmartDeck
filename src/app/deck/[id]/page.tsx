@@ -3,6 +3,7 @@ import StudyDeck from "@/components/StudyDeck";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
+import ScrollReveal from "@/components/common/ScrollReveal";
 
 const prisma = new PrismaClient();
 
@@ -25,23 +26,23 @@ export default async function DeckPage(props: { params: Promise<{ id: string }> 
   const dueCardsCount = deck.cards.filter(c => c.nextReviewDate <= now).length;
 
   return (
-    <main className="min-h-screen bg-[#0A0A0B] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] relative overflow-hidden flex flex-col items-center pt-8">
-      <div className="absolute top-[10%] left-[-20%] w-[60%] h-[60%] bg-blue-600/10 blur-[150px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[0%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[150px] rounded-full pointer-events-none" />
-
-      <div className="w-full max-w-4xl px-4 flex items-center justify-between mb-12 z-10">
-        <Link href="/" className="flex items-center text-gray-400 hover:text-white transition-colors p-2 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10">
-          <ArrowLeft className="h-5 w-5 mr-2" /> Back to Decks
+    <main className="min-h-screen relative overflow-hidden flex flex-col items-center pt-8 pb-32">
+      
+      <ScrollReveal className="w-full max-w-5xl px-4 flex items-center justify-between mb-12 z-10">
+        <Link href="/" className="flex items-center text-gray-600 hover:text-black transition-colors px-4 py-2 bg-white rounded-full border border-gray-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-200 text-sm font-semibold">
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back
         </Link>
         <div className="text-right">
-          <h1 className="text-2xl font-bold text-white mb-1">{deck.title}</h1>
-          <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold border border-blue-500/30">
-            {dueCardsCount} Due for Review
+          <h1 className="text-2xl font-black text-black tracking-tight mb-1">{deck.title}</h1>
+          <div className="inline-flex items-center px-4 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] uppercase font-black tracking-widest border border-emerald-100 shadow-sm">
+            {dueCardsCount} Due
           </div>
         </div>
-      </div>
+      </ScrollReveal>
 
-      <StudyDeck cards={cardsToReview} deckId={deck.id} imageQuery={deck.imageQuery || ""} deckTitle={deck.title} />
+      <div className="w-full relative z-10 flex flex-col items-center flex-1">
+        <StudyDeck cards={cardsToReview} deckId={deck.id} imageQuery={deck.imageQuery || ""} deckTitle={deck.title} />
+      </div>
     </main>
   );
 }

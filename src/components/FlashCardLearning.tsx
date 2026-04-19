@@ -64,24 +64,24 @@ export default function FlashCardLearning({
 
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 backdrop-blur-sm">
-          <BookOpen className="h-4 w-4 text-indigo-400" />
-          <span className="text-sm font-bold text-white/70 tracking-wide">Learning Mode</span>
+        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 backdrop-blur-sm shadow-sm">
+          <BookOpen className="h-4 w-4 text-blue-600" />
+          <span className="text-sm font-bold text-gray-800 tracking-wide">Learning Mode</span>
         </div>
-        <div className="flex-1 h-px bg-white/5" />
+        <div className="flex-1 h-px bg-gray-200" />
         <div className="text-right">
-          <div className="text-[10px] text-white/35 font-bold uppercase tracking-widest mb-0.5">Concepts Mastered</div>
+          <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Concepts Mastered</div>
           <div className="text-xl font-extrabold tabular-nums">
-            <span className="text-emerald-400">{understoodCount}</span>
-            <span className="text-white/25"> / {total}</span>
+            <span className="text-emerald-500">{understoodCount}</span>
+            <span className="text-gray-400"> / {total}</span>
           </div>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-1.5 bg-white/5 rounded-full mb-8 overflow-hidden border border-white/5">
+      <div className="w-full h-1.5 bg-gray-100 rounded-full mb-8 overflow-hidden border border-gray-200">
         <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400"
+          className="h-full rounded-full bg-blue-500"
           animate={{ width: `${(understoodCount / total) * 100}%` }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         />
@@ -89,12 +89,12 @@ export default function FlashCardLearning({
 
       {/* Subtitle */}
       <div className="text-center mb-10">
-        <h2 className="text-3xl font-extrabold text-white mb-2 leading-tight">
+        <h2 className="text-3xl font-extrabold text-black mb-2 leading-tight">
           Let's master the concepts first
         </h2>
-        <p className="text-white/40 text-sm font-medium max-w-lg mx-auto">
+        <p className="text-gray-500 text-sm font-medium max-w-lg mx-auto">
           Read every sticky note carefully. Tap{" "}
-          <strong className="text-white/65">"Got it!"</strong> once you understand — the card turns grey.
+          <strong className="text-gray-800">"Got it!"</strong> once you understand — the card turns grey.
           When all are grey, the Quiz tab unlocks.
         </p>
       </div>
@@ -250,11 +250,11 @@ export default function FlashCardLearning({
           animate={{ opacity: 1, y: 0 }}
           className="mt-14 flex flex-col items-center text-center"
         >
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/30">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-500 flex items-center justify-center mb-4 shadow-xl shadow-emerald-500/20 border border-emerald-300">
             <CheckCircle2 className="h-8 w-8 text-white" />
           </div>
-          <h3 className="text-xl font-extrabold text-white mb-1">All concepts mastered! 🎉</h3>
-          <p className="text-white/40 text-sm">Switch to Quiz using the panel on the left to test yourself.</p>
+          <h3 className="text-xl font-extrabold text-black mb-1 tracking-tight">All concepts mastered! 🎉</h3>
+          <p className="text-gray-600 text-sm font-medium">Switch to Quiz using the panel on the left to test yourself.</p>
         </motion.div>
       )}
     </div>

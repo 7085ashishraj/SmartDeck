@@ -17,14 +17,14 @@ const HANDWRITING = "var(--font-caveat), 'Caveat', cursive";
 const OPT_LABELS  = ["A", "B", "C", "D"];
 
 const QUIZ_GRADIENTS = [
-  ["#0f0c29", "#302b63", "#24243e"],
-  ["#1a0533", "#4a044e", "#1a0533"],
-  ["#0a1628", "#1e3a8a", "#0a1628"],
-  ["#1a0a00", "#7c2d12", "#2d1200"],
-  ["#003333", "#1a4a3a", "#003333"],
+  ["#e0eafc", "#cfdef3", "#e0eafc"],
+  ["#fdfbfb", "#ebedee", "#fdfbfb"],
+  ["#f3e7e9", "#e3eeff", "#f3e7e9"],
+  ["#E6F0FA", "#F0F5FF", "#E6F0FA"],
+  ["#ffecd2", "#fcb69f", "#ffecd2"],
 ];
 
-const QUIZ_ACCENTS = ["#818cf8","#c084fc","#60a5fa","#fb923c","#34d399"];
+const QUIZ_ACCENTS = ["#4f46e5","#9333ea","#2563eb","#ea580c","#059669"];
 
 type Card = { id: string; front: string; back: string; explanation: string | null; interval: number };
 type Phase = "learn" | "quiz" | "books" | "mindmap" | "video";
@@ -65,8 +65,8 @@ function ModeToggle({ phase, onChange }: { phase: Phase; onChange: (p: Phase) =>
   ];
   return (
     <motion.div
-      className="fixed left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-0.5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-md"
-      style={{ background: "rgba(8,8,16,0.82)" }}
+      className="fixed left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-0.5 p-1.5 rounded-2xl border border-gray-200 backdrop-blur-md shadow-lg"
+      style={{ background: "rgba(255,255,255,0.85)" }}
       initial={{ opacity: 0, x: -36 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.3, duration: 0.4, ease: "easeOut" }}
@@ -78,15 +78,15 @@ function ModeToggle({ phase, onChange }: { phase: Phase; onChange: (p: Phase) =>
             key={id}
             onClick={() => onChange(id)}
             className="relative flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-colors select-none overflow-hidden"
-            style={{ color: active ? "#fff" : "rgba(255,255,255,0.30)", width: 68 }}
+            style={{ color: active ? "#fff" : "rgba(0,0,0,0.40)", width: 68 }}
           >
             {active && (
               <motion.div
                 layoutId="mode-pill"
                 className="absolute inset-0 rounded-xl"
                 style={{
-                  background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                  boxShadow: "0 4px 18px rgba(99,102,241,0.55)",
+                  background: "linear-gradient(135deg,#3b82f6,#4f46e5)",
+                  boxShadow: "0 4px 18px rgba(59,130,246,0.5)",
                 }}
                 transition={{ type: "spring", stiffness: 420, damping: 32 }}
               />
