@@ -8,11 +8,14 @@ import PDFParser from "pdf2json";
 import { Mistral } from "@mistralai/mistralai";
 import { PrismaClient } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const prisma = new PrismaClient();
 const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
 
 export async function processPdf(formData: FormData) {
+  const session = await getServerSession(authOptions);
   const file = formData.get("pdf") as File;
   const title = (formData.get("title") as string) || "Untitled Deck";
 
@@ -70,10 +73,16 @@ ${text}`;
     throw new Error("No flashcards were generated.");
   }
 
+  // Link deck to the logged-in user if available
+  const userId = session?.user?.email
+    ? (await prisma.user.findUnique({ where: { email: session.user.email }, select: { id: true } }))?.id
+    : null;
+
   const deck = await prisma.deck.create({
     data: {
       title,
       description: `Generated from ${file.name}`,
+      ...(userId ? { userId } : {}),
     },
   });
 
@@ -93,7 +102,20 @@ ${text}`;
 }
 
 export async function getDecks() {
+  const session = await getServerSession(authOptions);
+
+  // If not logged in, return empty — users must be authenticated to see decks
+  if (!session?.user?.email) return [];
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true },
+  });
+
+  if (!user) return [];
+
   return prisma.deck.findMany({
+    where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { cards: true } },
@@ -109,9 +131,25 @@ export async function getDecks() {
 }
 
 export async function deleteDeck(deckId: string) {
-  await prisma.deck.delete({
-    where: { id: deckId },
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.email) throw new Error("Unauthorized");
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true },
   });
+
+  if (!user) throw new Error("User not found");
+
+  // Ensure the deck belongs to this user before deleting
+  const deck = await prisma.deck.findFirst({
+    where: { id: deckId, userId: user.id },
+  });
+
+  if (!deck) throw new Error("Deck not found or access denied");
+
+  await prisma.deck.delete({ where: { id: deckId } });
   revalidatePath("/");
   return { success: true };
 }
