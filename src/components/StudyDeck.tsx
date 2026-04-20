@@ -116,14 +116,14 @@ function QuizSetup({ total, onStart }: { total: number; onStart: (n: number) => 
         <Brain className="h-10 w-10 text-white" />
       </div>
 
-      <h2 className="text-3xl font-extrabold text-white mb-2 text-center">Set Up Your Quiz</h2>
-      <p className="text-white/40 text-sm text-center mb-10 max-w-xs">
+      <h2 className="text-3xl font-extrabold text-black mb-2 text-center tracking-tight">Set Up Your Quiz</h2>
+      <p className="text-gray-500 text-sm text-center mb-10 max-w-xs">
         Choose how many questions you want to tackle. Each is a multiple-choice question with 4 options.
       </p>
 
       {/* Count picker */}
       <div className="w-full mb-10">
-        <p className="text-xs font-bold text-white/40 uppercase tracking-widest text-center mb-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest text-center mb-4">
           How many questions? ({total} available)
         </p>
         <div className="grid grid-cols-3 gap-3">
@@ -134,8 +134,8 @@ function QuizSetup({ total, onStart }: { total: number; onStart: (n: number) => 
               className="flex flex-col items-center py-4 rounded-2xl border-2 transition-all font-extrabold text-lg"
               style={
                 sel === n
-                  ? { background: "linear-gradient(135deg,#6366f1,#8b5cf6)", borderColor: "#818cf8", color: "#fff", boxShadow: "0 4px 20px rgba(99,102,241,0.4)" }
-                  : { background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.45)" }
+                  ? { background: "linear-gradient(135deg,#3b82f6,#4f46e5)", borderColor: "#4f46e5", color: "#fff", boxShadow: "0 4px 20px rgba(59,130,246,0.3)" }
+                  : { background: "rgba(0,0,0,0.02)", borderColor: "rgba(0,0,0,0.06)", color: "rgba(0,0,0,0.6)" }
               }
             >
               {n === total && !([5,10,15,20].includes(n)) ? "All" : n}
@@ -242,8 +242,8 @@ function ScoreScreen({ correct, total, onRetry }: { correct: number; total: numb
         transition={{ duration: 0.5, delay: 0.1 }}
         className="text-center mb-8"
       >
-        <p className="text-white/35 text-[11px] font-black uppercase tracking-[0.25em] mb-1">Quiz Complete</p>
-        <h2 className="text-3xl font-extrabold text-white">Your Results Are In</h2>
+        <p className="text-gray-400 text-[11px] font-black uppercase tracking-[0.25em] mb-1">Quiz Complete</p>
+        <h2 className="text-3xl font-extrabold text-black tracking-tight">Your Results Are In</h2>
       </motion.div>
 
       {/* ── SVG Circle + Counter ── */}
@@ -262,7 +262,7 @@ function ScoreScreen({ correct, total, onRetry }: { correct: number; total: numb
 
           {/* Track ring */}
           <circle cx="100" cy="100" r={R} fill="none"
-            stroke="rgba(255,255,255,0.06)" strokeWidth="16" />
+            stroke="rgba(0,0,0,0.06)" strokeWidth="16" />
 
           {/* Glow ring */}
           <motion.circle cx="100" cy="100" r={R} fill="none"
@@ -296,7 +296,7 @@ function ScoreScreen({ correct, total, onRetry }: { correct: number; total: numb
               fontFamily: HANDWRITING,
               fontSize: "3.8rem",
               fontWeight: 800,
-              color: "#fff",
+              color: "#000",
               lineHeight: 1,
               letterSpacing: "-0.02em",
               filter: counterDone ? "none" : "blur(0.5px)",
@@ -309,7 +309,7 @@ function ScoreScreen({ correct, total, onRetry }: { correct: number; total: numb
             style={{
               fontFamily: HANDWRITING,
               fontSize: "1.35rem",
-              color: "rgba(255,255,255,0.35)",
+              color: "rgba(0,0,0,0.4)",
               lineHeight: 1,
               marginTop: 2,
             }}
@@ -352,12 +352,12 @@ function ScoreScreen({ correct, total, onRetry }: { correct: number; total: numb
           <span className="text-3xl">{emoji}</span>
           <span className="text-2xl font-extrabold" style={{ color }}>{grade}!</span>
         </div>
-        <p className="text-white/40 text-sm text-center">
+        <p className="text-gray-500 text-sm text-center font-medium mt-2">
           {correct} correct answer{correct !== 1 ? "s" : ""} out of {total} questions
         </p>
 
         {/* Score bar */}
-        <div className="w-full max-w-xs mt-4 h-2 bg-white/6 rounded-full overflow-hidden border border-white/8">
+        <div className="w-full max-w-xs mt-4 h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
           <motion.div
             className="h-full rounded-full"
             style={{ background: `linear-gradient(90deg, ${color}, ${color}bb)` }}
@@ -376,7 +376,7 @@ function ScoreScreen({ correct, total, onRetry }: { correct: number; total: numb
         className="flex gap-3"
       >
         <Link href="/">
-          <button className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 text-white/60 font-bold rounded-xl hover:bg-white/10 transition-all text-sm">
+          <button className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm">
             <Home className="h-4 w-4" /> Dashboard
           </button>
         </Link>
@@ -424,7 +424,7 @@ function MCQCard({
     >
       {/* Progress */}
       <div className="w-full flex items-center gap-3 mb-6">
-        <div className="flex-1 bg-white/5 border border-white/10 h-2 rounded-full overflow-hidden">
+        <div className="flex-1 bg-gray-100 border border-gray-200 h-2 rounded-full overflow-hidden">
           <motion.div
             className="h-full rounded-full"
             style={{ background: `linear-gradient(90deg, ${accent}, ${accent}bb)` }}
@@ -432,7 +432,7 @@ function MCQCard({
             transition={{ duration: 0.4, ease: "easeOut" }}
           />
         </div>
-        <span className="text-xs font-bold text-white/40 shrink-0 tabular-nums">{index + 1} / {total}</span>
+        <span className="text-xs font-bold text-gray-400 shrink-0 tabular-nums">{index + 1} / {total}</span>
       </div>
 
       {/* Question card with background image */}
@@ -480,8 +480,8 @@ function MCQCard({
           {/* Question text */}
           <div className="flex-1 flex items-center">
             <h3
-              className="text-white leading-relaxed drop-shadow-lg"
-              style={{ fontFamily: HANDWRITING, fontSize: "1.55rem", fontWeight: 800, lineHeight: 1.4 }}
+              className="leading-relaxed"
+              style={{ color: hasImg ? "#fff" : "#111", textShadow: hasImg ? "0 2px 10px rgba(0,0,0,0.5)" : "none", fontFamily: HANDWRITING, fontSize: "1.55rem", fontWeight: 800, lineHeight: 1.4 }}
             >
               {card.front}
             </h3>
@@ -489,7 +489,7 @@ function MCQCard({
 
           {/* Hint */}
           {!answered && (
-            <p className="text-white/35 text-xs font-semibold mt-3">Choose the correct answer below →</p>
+            <p className="text-xs font-semibold mt-3" style={{ color: hasImg ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.5)" }}>Choose the correct answer below →</p>
           )}
         </div>
       </div>
@@ -500,16 +500,16 @@ function MCQCard({
           const isSelected  = selectedIdx === i;
           const isCorrectOp = opt.isCorrect;
 
-          let bg = "rgba(255,255,255,0.06)";
-          let border = "rgba(255,255,255,0.12)";
-          let textColor = "rgba(255,255,255,0.85)";
+          let bg = "rgba(0,0,0,0.02)";
+          let border = "rgba(0,0,0,0.06)";
+          let textColor = "rgba(0,0,0,0.75)";
           let icon = null;
 
           if (answered) {
-            if (isSelected && isCorrectOp)  { bg = "rgba(16,185,129,0.22)";  border = "rgba(52,211,153,0.60)";  textColor = "#6ee7b7"; icon = <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />; }
-            else if (isSelected && !isCorrectOp) { bg = "rgba(239,68,68,0.22)";  border = "rgba(248,113,113,0.60)"; textColor = "#fca5a5"; icon = <XCircle className="h-5 w-5 text-red-400 shrink-0" />; }
-            else if (!isSelected && isCorrectOp) { bg = "rgba(16,185,129,0.10)";  border = "rgba(52,211,153,0.35)";  textColor = "#6ee7b7"; icon = <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 opacity-70" />; }
-            else { bg = "rgba(255,255,255,0.02)"; border = "rgba(255,255,255,0.06)"; textColor = "rgba(255,255,255,0.25)"; }
+            if (isSelected && isCorrectOp)  { bg = "rgba(16,185,129,0.12)";  border = "rgba(52,211,153,0.50)";  textColor = "#047857"; icon = <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />; }
+            else if (isSelected && !isCorrectOp) { bg = "rgba(239,68,68,0.12)";  border = "rgba(248,113,113,0.50)"; textColor = "#b91c1c"; icon = <XCircle className="h-5 w-5 text-red-600 shrink-0" />; }
+            else if (!isSelected && isCorrectOp) { bg = "rgba(16,185,129,0.05)";  border = "rgba(52,211,153,0.25)";  textColor = "#059669"; icon = <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 opacity-70" />; }
+            else { bg = "rgba(0,0,0,0.01)"; border = "rgba(0,0,0,0.03)"; textColor = "rgba(0,0,0,0.3)"; }
           }
 
           return (
@@ -535,11 +535,11 @@ function MCQCard({
                 className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
                 style={{
                   background: answered
-                    ? (isCorrectOp ? "rgba(16,185,129,0.25)" : isSelected ? "rgba(239,68,68,0.25)" : "rgba(255,255,255,0.05)")
-                    : "rgba(255,255,255,0.10)",
+                    ? (isCorrectOp ? "rgba(16,185,129,0.25)" : isSelected ? "rgba(239,68,68,0.25)" : "rgba(0,0,0,0.03)")
+                    : "rgba(0,0,0,0.05)",
                   color: answered
-                    ? (isCorrectOp ? "#6ee7b7" : isSelected ? "#fca5a5" : "rgba(255,255,255,0.2)")
-                    : "rgba(255,255,255,0.7)",
+                    ? (isCorrectOp ? "#047857" : isSelected ? "#b91c1c" : "rgba(0,0,0,0.4)")
+                    : "rgba(0,0,0,0.6)",
                 }}
               >
                 {OPT_LABELS[i]}
@@ -566,7 +566,7 @@ function MCQCard({
           style={{ background: "rgba(99,102,241,0.12)", border: "1.5px solid rgba(99,102,241,0.30)" }}
         >
           <span className="text-lg shrink-0">💡</span>
-          <p className="text-indigo-200 text-sm font-medium leading-relaxed">{card.explanation}</p>
+          <p className="text-indigo-900 text-sm font-semibold leading-relaxed">{card.explanation}</p>
         </motion.div>
       )}
 

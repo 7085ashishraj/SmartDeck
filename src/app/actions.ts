@@ -107,3 +107,11 @@ export async function getDecks() {
     },
   });
 }
+
+export async function deleteDeck(deckId: string) {
+  await prisma.deck.delete({
+    where: { id: deckId },
+  });
+  revalidatePath("/");
+  return { success: true };
+}

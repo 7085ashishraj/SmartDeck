@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Caveat } from "next/font/google";
 import "./globals.css";
 import ParticleNetwork from "@/components/common/ParticleNetwork";
+import Providers from "@/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,15 +36,17 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#FAFAFA] text-black selection:bg-blue-200">
-        <ParticleNetwork />
-        
-        {/* Subtle Vignette for White Theme */}
-        <div className="fixed inset-0 pointer-events-none z-50 mix-blend-multiply opacity-20"
-             style={{ background: "radial-gradient(circle, transparent 50%, #e0e0e0 150%)" }} />
-             
-        <div className="relative z-10 flex-1 flex flex-col">
-          {children}
-        </div>
+        <Providers>
+          <ParticleNetwork />
+          
+          {/* Subtle Vignette for White Theme */}
+          <div className="fixed inset-0 pointer-events-none z-50 mix-blend-multiply opacity-20"
+               style={{ background: "radial-gradient(circle, transparent 50%, #e0e0e0 150%)" }} />
+               
+          <div className="relative z-10 flex-1 flex flex-col">
+            {children}
+          </div>
+        </Providers>
       </body>
     </html>
   );
