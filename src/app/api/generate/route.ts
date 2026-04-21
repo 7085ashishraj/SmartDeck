@@ -6,6 +6,8 @@ import { Mistral } from "@mistralai/mistralai";
 import { PrismaClient } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import PDFParser from "pdf2json";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const prisma = new PrismaClient();
 const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
@@ -59,6 +61,11 @@ async function fetchWikipediaImages(keywords: string[], count: number = 8): Prom
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.email
+      ? (await prisma.user.findUnique({ where: { email: session.user.email }, select: { id: true } }))?.id
+      : null;
+
     const formData = await req.formData();
     const file = formData.get("pdf") as File;
     const title = (formData.get("title") as string) || "Untitled Deck";
@@ -137,6 +144,7 @@ ${text}`;
         title,
         description: `Generated from ${file.name}`,
         imageQuery,
+        ...(userId ? { userId } : {}),
       },
     });
 

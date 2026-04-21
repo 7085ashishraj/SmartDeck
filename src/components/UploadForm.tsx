@@ -15,6 +15,11 @@ export default function UploadForm() {
     e.preventDefault();
     const dropped = e.dataTransfer.files[0];
     if (dropped && dropped.type === "application/pdf") {
+      if (dropped.size > 4 * 1024 * 1024) {
+        setError("File is too large. Maximum size is 4MB.");
+        return;
+      }
+      setError("");
       setFile(dropped);
       if (!title) setTitle(dropped.name.replace(".pdf", ""));
     }
@@ -23,6 +28,11 @@ export default function UploadForm() {
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (selected) {
+      if (selected.size > 4 * 1024 * 1024) {
+        setError("File is too large. Maximum size is 4MB.");
+        return;
+      }
+      setError("");
       setFile(selected);
       if (!title) setTitle(selected.name.replace(".pdf", ""));
     }
@@ -44,8 +54,25 @@ export default function UploadForm() {
         method: "POST",
         body: formData,
       });
+      
+      if (!res.ok) {
+        const text = await res.text();
+        let errorMsg = "Server error";
+        
+        if (res.status === 413 || text.includes("Request Entity Too Large")) {
+          throw new Error("File is too large for the server. Please upload a smaller PDF (Under 4MB).");
+        }
+        
+        try {
+          const errData = JSON.parse(text);
+          errorMsg = errData.error || errorMsg;
+        } catch {
+          errorMsg = text.substring(0, 50) + "..."; // Safely show partial text if HTML
+        }
+        throw new Error(errorMsg);
+      }
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Server error");
       if (data.deckId) {
         router.push(`/deck/${data.deckId}`);
         router.refresh();
@@ -100,10 +127,10 @@ export default function UploadForm() {
             <span className="text-blue-600 group-hover:text-blue-700 transition-colors">
               Click to browse
             </span>
-            <p className="pl-1.5 text-gray-500">or drag a PDF here</p>
+            <p className="pl-1.5 text-gray-500">or drag a PDF (Max 4MB)</p>
             <input id="file-upload" type="file" accept=".pdf" className="sr-only" onChange={handleFile} />
           </div>
-          <div className="mt-4 flex justify-center">
+          <div className="mt-4 flex flex-col justify-center items-center gap-2">
              {file ? (
                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full inline-flex items-center gap-2 shadow-sm">
                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -112,6 +139,7 @@ export default function UploadForm() {
              ) : (
                <span className="text-xs font-semibold text-gray-400 bg-white border border-gray-200 px-3 py-1 rounded-full shadow-sm">PDF only</span>
              )}
+             <span className="text-[10px] font-medium text-gray-400">Strict limit: 4MB max</span>
           </div>
         </div>
       </div>
